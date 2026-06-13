@@ -1,4 +1,4 @@
-from app.config import settings
+from app.config.config import settings
 import httpx
 import re
 
@@ -25,7 +25,7 @@ def parse_pr_url(url: str) -> tuple[str, str, int]:
     return match["owner"], match["repo"], int(match["pull_number"])
 
 
-class GithubClient:
+class GitHubClient:
     """Minimal GitHub API client for retrieving PR diffs."""
     def __init__(self, token: str | None = None, timeout: float = 30.0) -> None:
         self._token = token or settings.github_token
@@ -41,13 +41,14 @@ class GithubClient:
             },
             timeout=timeout,
         )
+
     def fetch_diff(self, pr_url: str) -> str:
         """Fetch the unified diff for a pull request, given its web URL."""
         owner, repo, pull_number = parse_pr_url(pr_url)
         try:
             response = self._client.get(
                 f"/repos/{owner}/{repo}/pulls/{pull_number}",
-                headers={"Accept": "application/vnd.github.v3.diff"},
+                headers={"Accept": "application/vnd.github.diff"},
             )
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:

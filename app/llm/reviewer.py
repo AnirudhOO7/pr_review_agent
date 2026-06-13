@@ -1,7 +1,7 @@
 from anthropic import Anthropic
 from anthropic import APIError, APIStatusError
 
-from app.config import settings
+from app.config.config import settings
 from app.models.findings import ReviewResult
 
 
@@ -11,12 +11,12 @@ class ReviewError(Exception):
 class LLMReviewer:
     def __init__(self, model: str | None = None) -> None:
         self._client = Anthropic(api_key=settings.anthropic_api_key)
-        self._model = model or settings.model_name
+        self.model = model or settings.model_name
 
     def review(self, diff:str)->ReviewResult:
         try:
             response = self._client.messages.parse(
-                model=self._model,
+                model=self.model,
                 max_tokens=4096,
                 system=(
                     "You are a senior code reviewer. Review the unified diff "
