@@ -6,5 +6,9 @@ dist/
 wheels/
 *.egg-info
 .env
+
+# Local review logs can contain full PR diffs.
+runs/
+
 # Virtual environments
 .venv
