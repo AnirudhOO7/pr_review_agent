@@ -10,6 +10,10 @@ class ReviewError(Exception):
 
 class LLMReviewer:
     def __init__(self, model: str | None = None) -> None:
+        if not settings.anthropic_api_key:
+            raise ReviewError(
+                "No Anthropic API key configured. Set ANTHROPIC_API_KEY in your .env."
+            )
         self._client = Anthropic(api_key=settings.anthropic_api_key)
         self.model = model or settings.model_name
 
