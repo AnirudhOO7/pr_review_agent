@@ -1,0 +1,110 @@
+[
+  {
+    "id": "buggy_off_by_one",
+    "label": "buggy",
+    "diff": "--- /dev/null\n+++ b/app/utils/pagination.py\n@@ -0,0 +1,6 @@\n+def last_page_items(items, page_size):\n+    pages = len(items) // page_size\n+    result = []\n+    for i in range(pages + 1):\n+        result.append(items[i * page_size])\n+    return result\n",
+    "expected": {
+      "file": "app/utils/pagination.py",
+      "lines": [4, 5],
+      "bug_type": "off-by-one",
+      "category": "correctness"
+    }
+  },
+  {
+    "id": "buggy_missing_null_check",
+    "label": "buggy",
+    "diff": "--- /dev/null\n+++ b/app/users/profile.py\n@@ -0,0 +1,4 @@\n+def display_name(users, user_id):\n+    user = users.get(user_id)\n+    full = user[\"first\"] + \" \" + user[\"last\"]\n+    return full.strip()\n",
+    "expected": {
+      "file": "app/users/profile.py",
+      "lines": [3],
+      "bug_type": "missing-null-check",
+      "category": "correctness"
+    }
+  },
+  {
+    "id": "buggy_sql_injection",
+    "label": "buggy",
+    "diff": "--- /dev/null\n+++ b/app/db/queries.py\n@@ -0,0 +1,4 @@\n+def find_user(cursor, username):\n+    query = \"SELECT * FROM users WHERE name = '\" + username + \"'\"\n+    cursor.execute(query)\n+    return cursor.fetchone()\n",
+    "expected": {
+      "file": "app/db/queries.py",
+      "lines": [2],
+      "bug_type": "injection",
+      "category": "security"
+    }
+  },
+  {
+    "id": "buggy_command_injection",
+    "label": "buggy",
+    "diff": "--- /dev/null\n+++ b/app/ops/backup.py\n@@ -0,0 +1,4 @@\n+import os\n+def archive(path):\n+    os.system(\"tar -czf backup.tar.gz \" + path)\n+    return \"backup.tar.gz\"\n",
+    "expected": {
+      "file": "app/ops/backup.py",
+      "lines": [3],
+      "bug_type": "injection",
+      "category": "security"
+    }
+  },
+  {
+    "id": "buggy_race_condition",
+    "label": "buggy",
+    "diff": "--- /dev/null\n+++ b/app/cache/counter.py\n@@ -0,0 +1,6 @@\n+counts = {}\n+def increment(key):\n+    if key not in counts:\n+        counts[key] = 0\n+    counts[key] = counts[key] + 1\n+    return counts[key]\n",
+    "expected": {
+      "file": "app/cache/counter.py",
+      "lines": [3, 5],
+      "bug_type": "race-condition",
+      "category": "correctness"
+    }
+  },
+  {
+    "id": "buggy_division_no_guard",
+    "label": "buggy",
+    "diff": "--- /dev/null\n+++ b/app/stats/metrics.py\n@@ -0,0 +1,3 @@\n+def average(values):\n+    total = sum(values)\n+    return total / len(values)\n",
+    "expected": {
+      "file": "app/stats/metrics.py",
+      "lines": [3],
+      "bug_type": "missing-guard",
+      "category": "correctness"
+    }
+  },
+  {
+    "id": "buggy_resource_leak",
+    "label": "buggy",
+    "diff": "--- /dev/null\n+++ b/app/io/reader.py\n@@ -0,0 +1,4 @@\n+def read_config(path):\n+    f = open(path)\n+    data = f.read()\n+    return data\n",
+    "expected": {
+      "file": "app/io/reader.py",
+      "lines": [2, 3],
+      "bug_type": "resource-leak",
+      "category": "maintainability"
+    }
+  },
+  {
+    "id": "buggy_mutable_default",
+    "label": "buggy",
+    "diff": "--- /dev/null\n+++ b/app/util/collect.py\n@@ -0,0 +1,3 @@\n+def add_item(item, bucket=[]):\n+    bucket.append(item)\n+    return bucket\n",
+    "expected": {
+      "file": "app/util/collect.py",
+      "lines": [1],
+      "bug_type": "mutable-default",
+      "category": "correctness"
+    }
+  },
+  {
+    "id": "clean_slugify",
+    "label": "clean",
+    "diff": "--- /dev/null\n+++ b/app/util/strings.py\n@@ -0,0 +1,3 @@\n+def slugify(text):\n+    cleaned = text.strip().lower()\n+    return cleaned.replace(\" \", \"-\")\n"
+  },
+  {
+    "id": "clean_average_guarded",
+    "label": "clean",
+    "diff": "--- /dev/null\n+++ b/app/stats/metrics_safe.py\n@@ -0,0 +1,4 @@\n+def average(values):\n+    if not values:\n+        return 0.0\n+    return sum(values) / len(values)\n"
+  },
+  {
+    "id": "clean_parametrized_sql",
+    "label": "clean",
+    "diff": "--- /dev/null\n+++ b/app/db/safe_queries.py\n@@ -0,0 +1,3 @@\n+def find_user(cursor, username):\n+    cursor.execute(\"SELECT * FROM users WHERE name = ?\", (username,))\n+    return cursor.fetchone()\n"
+  },
+  {
+    "id": "clean_context_manager_io",
+    "label": "clean",
+    "diff": "--- /dev/null\n+++ b/app/io/safe_reader.py\n@@ -0,0 +1,3 @@\n+def read_config(path):\n+    with open(path) as f:\n+        return f.read()\n"
+  }
+]
