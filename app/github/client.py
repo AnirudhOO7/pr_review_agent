@@ -1,6 +1,8 @@
-from app.config.config import settings
-import httpx
 import re
+
+import httpx
+
+from app.config.config import settings
 
 GITHUB_API_BASE = "https://api.github.com"
 
@@ -13,6 +15,7 @@ _PR_URL_PATTERN = re.compile(
 
 class GitHubError(Exception):
     """Raised when a GitHub API request fails or a URL can't be parsed."""
+
 
 def parse_pr_url(url: str) -> tuple[str, str, int]:
     """Extract (owner, repo, number) from a GitHub pull request URL."""
@@ -27,6 +30,7 @@ def parse_pr_url(url: str) -> tuple[str, str, int]:
 
 class GitHubClient:
     """Minimal GitHub API client for retrieving PR diffs."""
+
     def __init__(self, token: str | None = None, timeout: float = 30.0) -> None:
         self._token = token or settings.github_token
         if not self._token:
@@ -57,6 +61,36 @@ class GitHubClient:
             raise GitHubError(f"Network error contacting GitHub: {exc}") from exc
         return response.text
 
+    def create_review(
+        self,
+        owner: str,
+        repo: str,
+        pull_number: int,
+        body: str,
+        comments: list[dict],
+    ) -> None:
+        """Create a PR review with optional inline comments.
+
+        `comments` is a list of {path, line, side, body} dicts targeting lines
+        that are known to be part of the diff. `event` is COMMENT so the review
+        neither approves nor requests changes.
+        """
+        payload: dict = {"event": "COMMENT"}
+        if body:
+            payload["body"] = body
+        if comments:
+            payload["comments"] = comments
+        try:
+            response = self._client.post(
+                f"/repos/{owner}/{repo}/pulls/{pull_number}/reviews",
+                json=payload,
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise GitHubError(self._explain_error(exc)) from exc
+        except httpx.RequestError as exc:
+            raise GitHubError(f"Network error contacting GitHub: {exc}") from exc
+
     @staticmethod
     def _explain_error(exc: httpx.HTTPStatusError) -> str:
         status = exc.response.status_code
@@ -66,6 +100,11 @@ class GitHubClient:
             return "Forbidden (403). Token may lack scope, or you hit a rate limit."
         if status == 404:
             return "PR not found (404). Check the URL or the token's repo access."
+        if status == 422:
+            return (
+                "GitHub rejected the review (422). A comment likely targets a "
+                f"line outside the diff: {exc.response.text[:300]}"
+            )
         return f"GitHub API error ({status}): {exc.response.text[:200]}"
 
     def close(self) -> None:
