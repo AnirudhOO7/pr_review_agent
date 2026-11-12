@@ -71,11 +71,16 @@ async function loadSamples() {
     return;
   }
   const select = $("#sample");
-  const groups = { buggy: "Planted bug", clean: "Clean (should stay quiet)" };
-  for (const [label, title] of Object.entries(groups)) {
+  const groups = [
+    ["Planted bug", (s) => s.label === "buggy" && !s.repo_path],
+    ["Clean (should stay quiet)", (s) => s.label === "clean" && !s.repo_path],
+    ["Needs repo context: planted bug", (s) => s.label === "buggy" && s.repo_path],
+    ["Needs repo context: clean", (s) => s.label === "clean" && s.repo_path],
+  ];
+  for (const [title, match] of groups) {
     const og = document.createElement("optgroup");
     og.label = title;
-    for (const s of state.samples.filter((x) => x.label === label)) {
+    for (const s of state.samples.filter(match)) {
       const opt = document.createElement("option");
       opt.value = s.id;
       opt.textContent = s.expected ? `${prettyId(s.id)} · ${s.expected.bug_type}` : prettyId(s.id);
@@ -86,13 +91,17 @@ async function loadSamples() {
 }
 
 function prettyId(id) {
-  return id.replace(/^(buggy|clean)_/, "").replace(/_/g, " ");
+  return id.replace(/^(ctx_)?(buggy|clean)_/, "").replace(/_/g, " ");
 }
 
 function useSample(id) {
   const sample = state.samples.find((s) => s.id === id);
   state.sample = sample || null;
-  if (sample) $("#diff").value = sample.diff;
+  if (!sample) return;
+  $("#diff").value = sample.diff;
+  // Context samples come with a fixture checkout; prefill it so retrieval runs.
+  $("#repoPath").value = sample.repo_path || "";
+  if (sample.repo_path) $(".advanced").open = true;
 }
 
 /* ---------------- Review ---------------- */
@@ -440,10 +449,19 @@ async function loadEval() {
     body.innerHTML = `<div class="card muted">${esc(err.message)}</div>`;
     return;
   }
+  let cmp = null;
+  try { cmp = await api("/api/eval/comparison"); } catch { /* optional */ }
   state.evalLoaded = true;
+
   const m = r.metrics;
+  const sd = r.metrics_std || {};
+  const trials = r.trials || 1;
   const pct = (x) => `${Math.round(x * 100)}%`;
-  const buggy = m.tp + m.fn, clean = m.fp + m.tn;
+  const num = (x) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
+  const spread = (k) => (trials > 1 && sd[k] != null ? ` <span class="pm">± ${Math.round(sd[k] * 100)}</span>` : "");
+  const buggy = r.cases.filter((c) => c.label === "buggy").length;
+  const clean = r.cases.length - buggy;
+  const far = m.false_alarm_rate ?? (m.fp + m.tn ? m.fp / (m.fp + m.tn) : 0);
 
   const bugTypes = Object.entries(r.recall_by_bug_type || {}).map(([type, v]) => `
     <div class="bar-row"><span>${esc(type)}</span>
@@ -456,44 +474,47 @@ async function loadEval() {
       <td>${esc(c.label)}</td>
       <td>${esc(c.bug_type || "—")}</td>
       <td><span class="outcome ${esc(c.outcome)}">${esc(outcomeLabel(c.outcome))}</span></td>
+      ${trials > 1 ? `<td><span class="trial-dots">${(c.outcomes || []).map((o) => `<span class="tdot ${esc(o)}" title="${esc(outcomeLabel(o))}"></span>`).join("")}</span></td>` : ""}
       <td>${c.matched_line ?? "—"}</td>
-      <td>${c.num_findings}</td>
+      <td>${num(c.num_findings)}</td>
     </tr>
-    <tr class="hidden" data-detail="${i}"><td colspan="6">
+    <tr class="hidden" data-detail="${i}"><td colspan="${trials > 1 ? 7 : 6}">
       ${c.findings?.length ? `<ul class="case-findings">${c.findings.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : `<span class="muted small">No findings.</span>`}
       ${state.samples.some((s) => s.id === c.case_id) ? `<button class="secondary" data-open="${esc(c.case_id)}" style="margin-top:8px">Re-run this case live</button>` : ""}
     </td></tr>`).join("");
 
   body.innerHTML = `
-    <p class="source-line">Generated ${esc(fmtTime(r.generated_at))} · model <code>${esc(r.model)}</code> · retrieval ${r.retrieval ? "on" : "off"} · match tolerance ±${r.tolerance} lines · regenerate with <code>python -m evals.run</code></p>
+    <p class="source-line">Generated ${esc(fmtTime(r.generated_at))} · model <code>${esc(r.model)}</code>${r.prompt ? ` · prompt <code>${esc(r.prompt)}</code>` : ""} · retrieval ${r.retrieval ? "on" : "off"}${r.min_severity ? ` · severity floor ${esc(r.min_severity)}` : ""} · ±${r.tolerance}-line match${trials > 1 ? ` · <b>${trials} trials</b>, mean ± std` : ""} · regenerate with <code>python -m evals.run</code></p>
     <div class="metric-grid">
-      <div class="metric"><div class="label">Recall</div><div class="value">${pct(m.recall)}</div><div class="sub">${m.tp} of ${buggy} planted bugs caught</div></div>
-      <div class="metric"><div class="label">Precision</div><div class="value">${pct(m.precision)}</div><div class="sub">${m.tp} of ${m.tp + m.fp} flagged cases were real bugs</div></div>
-      <div class="metric"><div class="label">F1</div><div class="value">${m.f1.toFixed(2)}</div><div class="sub">harmonic mean</div></div>
-      <div class="metric"><div class="label">Dataset</div><div class="value">${buggy + clean}</div><div class="sub">${buggy} planted-bug · ${clean} clean</div></div>
+      <div class="metric"><div class="label">Recall</div><div class="value">${pct(m.recall)}${spread("recall")}</div><div class="sub">${num(m.tp)} of ${buggy} planted bugs caught</div></div>
+      <div class="metric"><div class="label">Precision</div><div class="value">${pct(m.precision)}${spread("precision")}</div><div class="sub">${num(m.tp)} of ${num(m.tp + m.fp)} flagged cases were real bugs</div></div>
+      <div class="metric"><div class="label">F1</div><div class="value">${m.f1.toFixed(2)}${trials > 1 && sd.f1 != null ? ` <span class="pm">± ${sd.f1.toFixed(2)}</span>` : ""}</div><div class="sub">harmonic mean</div></div>
+      <div class="metric"><div class="label">False-alarm rate</div><div class="value">${pct(far)}${spread("false_alarm_rate")}</div><div class="sub">${num(m.fp)} of ${clean} clean cases flagged</div></div>
+      <div class="metric"><div class="label">Dataset</div><div class="value">${r.cases.length}</div><div class="sub">${buggy} planted-bug · ${clean} clean</div></div>
     </div>
+    ${cmp ? comparisonCard(cmp) : ""}
     <div class="eval-grid">
       <div class="card">
-        <div class="card-head"><h2>Confusion matrix</h2><span class="muted small">per case</span></div>
+        <div class="card-head"><h2>Confusion matrix</h2><span class="muted small">per case${trials > 1 ? ", mean of trials" : ""}</span></div>
         <div class="confusion">
           <span></span><span class="h">Flagged</span><span class="h">Silent</span>
           <span class="h">Planted bug</span>
-          <div class="cell good"><b>${m.tp}</b>true positive</div>
-          <div class="cell ${m.fn ? "bad" : "good"}"><b>${m.fn}</b>missed</div>
+          <div class="cell good"><b>${num(m.tp)}</b>true positive</div>
+          <div class="cell ${m.fn ? "bad" : "good"}"><b>${num(m.fn)}</b>missed</div>
           <span class="h">Clean</span>
-          <div class="cell ${m.fp ? "bad" : "good"}"><b>${m.fp}</b>false alarm</div>
-          <div class="cell good"><b>${m.tn}</b>correctly quiet</div>
+          <div class="cell ${m.fp ? "bad" : "good"}"><b>${num(m.fp)}</b>false alarm</div>
+          <div class="cell good"><b>${num(m.tn)}</b>correctly quiet</div>
         </div>
       </div>
       <div class="card">
-        <div class="card-head"><h2>Recall by bug type</h2></div>
+        <div class="card-head"><h2>Recall by bug type</h2>${trials > 1 ? `<span class="muted small">summed over trials</span>` : ""}</div>
         ${bugTypes || '<p class="muted">No buggy cases.</p>'}
       </div>
     </div>
     <div class="card">
       <div class="card-head"><h2>Per-case results</h2><span class="muted small">click a row for the model's findings</span></div>
       <div class="tbl-wrap"><table class="tbl">
-        <thead><tr><th>Case</th><th>Label</th><th>Bug type</th><th>Outcome</th><th>Match line</th><th>Findings</th></tr></thead>
+        <thead><tr><th>Case</th><th>Label</th><th>Bug type</th><th>Outcome</th>${trials > 1 ? "<th>Trials</th>" : ""}<th>Match line</th><th>Findings</th></tr></thead>
         <tbody>${caseRows}</tbody>
       </table></div>
     </div>`;
@@ -504,6 +525,40 @@ async function loadEval() {
     e.stopPropagation();
     openSample(b.dataset.open, true);
   }));
+}
+
+function comparisonCard(cmp) {
+  // [scope, metric, header, higherIsBetter]
+  const cols = [
+    ["overall", "precision", "Precision", true],
+    ["overall", "recall", "Recall", true],
+    ["overall", "f1", "F1", true],
+    ["overall", "false_alarm_rate", "False alarms", false],
+    ["context", "recall", "Context recall", true],
+    ["context", "false_alarm_rate", "Context false alarms", false],
+  ];
+  const best = cols.map(([scope, key, , higher]) => {
+    const vals = cmp.configs.map((c) => c[scope]?.metrics?.[key]).filter((v) => v != null);
+    return vals.length ? (higher ? Math.max(...vals) : Math.min(...vals)) : null;
+  });
+  const cell = (row, [scope, key], i) => {
+    const data = row[scope];
+    if (!data) return "<td>—</td>";
+    const v = data.metrics[key];
+    const s = data.metrics_std?.[key];
+    return `<td class="${v === best[i] ? "best" : ""}">${v.toFixed(2)}${cmp.trials > 1 && s != null ? ` <span class="pm">±${s.toFixed(2)}</span>` : ""}</td>`;
+  };
+  return `<div class="card">
+    <div class="card-head"><h2>A/B: prompt, retrieval and severity floor</h2>
+      <span class="muted small">${cmp.trials} trial${cmp.trials === 1 ? "" : "s"} per config · ${cmp.cases} cases · context subset ${cmp.context_cases} · <code>python -m evals.compare</code></span></div>
+    <div class="tbl-wrap"><table class="tbl cmp">
+      <thead><tr><th>Config</th><th>Prompt</th><th>Retrieval</th><th>Floor</th>${cols.map((c) => `<th>${c[2]}</th>`).join("")}</tr></thead>
+      <tbody>${cmp.configs.map((row) => `<tr>
+        <td><b>${esc(row.name)}</b></td><td>${esc(row.prompt)}</td><td>${row.retrieval ? "on" : "off"}</td><td>${esc(row.min_severity)}</td>
+        ${cols.map((c, i) => cell(row, c, i)).join("")}</tr>`).join("")}</tbody>
+    </table></div>
+    <p class="muted small" style="margin:10px 0 0">Context columns cover only cases whose bug (or safety) is visible solely in callers elsewhere in the fixture repo, which is where structural retrieval can help. Best value per column is highlighted.</p>
+  </div>`;
 }
 
 function outcomeLabel(o) {

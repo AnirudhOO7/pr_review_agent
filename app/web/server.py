@@ -29,6 +29,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 RUNS_DIR = PROJECT_ROOT / "runs"
 EVAL_REPORT = PROJECT_ROOT / "evals" / "report.json"
+EVAL_COMPARISON = PROJECT_ROOT / "evals" / "comparison.json"
 MAX_DIFF_CHARS = 200_000
 
 app = FastAPI(title="PR Review Agent", docs_url="/api/docs", redoc_url=None)
@@ -56,6 +57,7 @@ class PostRequest(BaseModel):
 def status() -> dict:
     return {
         "model": settings.model_name,
+        "prompt": settings.review_prompt,
         "anthropic_configured": bool(settings.anthropic_api_key),
         "github_configured": bool(settings.github_token),
     }
@@ -69,6 +71,7 @@ def samples() -> list[dict]:
             "id": case.id,
             "label": case.label,
             "diff": case.diff,
+            "repo_path": case.repo_path,
             "expected": (
                 {
                     "file": case.expected.file,
@@ -138,6 +141,13 @@ def eval_report() -> dict:
     if not EVAL_REPORT.is_file():
         raise HTTPException(404, "No eval report yet. Run `python -m evals.run`.")
     return json.loads(EVAL_REPORT.read_text(encoding="utf-8"))
+
+
+@app.get("/api/eval/comparison")
+def eval_comparison() -> dict:
+    if not EVAL_COMPARISON.is_file():
+        raise HTTPException(404, "No comparison yet. Run `python -m evals.compare`.")
+    return json.loads(EVAL_COMPARISON.read_text(encoding="utf-8"))
 
 
 @app.get("/api/runs")

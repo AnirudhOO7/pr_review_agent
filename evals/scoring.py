@@ -20,6 +20,13 @@ from evals.dataset import Case, ExpectedBug
 
 Outcome = Literal["TP", "FN", "FP", "TN"]
 DEFAULT_TOLERANCE = 3
+SEVERITY_RANK = {"minor": 0, "major": 1, "critical": 2}
+
+
+def filter_by_severity(findings: list[PRFinding], min_severity: str) -> list[PRFinding]:
+    """Keep findings at or above `min_severity` (minor keeps everything)."""
+    floor = SEVERITY_RANK[min_severity]
+    return [f for f in findings if SEVERITY_RANK[f.severity] >= floor]
 
 
 @dataclass(frozen=True)
@@ -116,6 +123,12 @@ class EvalSummary:
         return self.tp / denom if denom else 0.0
 
     @property
+    def false_alarm_rate(self) -> float:
+        """Share of clean cases where the agent raised anything (FP / clean)."""
+        denom = self.fp + self.tn
+        return self.fp / denom if denom else 0.0
+
+    @property
     def f1(self) -> float:
         p, r = self.precision, self.recall
         return 2 * p * r / (p + r) if (p + r) else 0.0
@@ -135,6 +148,9 @@ class EvalSummary:
     def spurious_findings_on_clean(self) -> int:
         """Total findings raised across clean cases (noise signal)."""
         return sum(r.num_findings for r in self.results if r.label == "clean")
+
+    def subset(self, case_ids: set[str]) -> "EvalSummary":
+        return EvalSummary(results=[r for r in self.results if r.case_id in case_ids])
 
 
 def aggregate(results: list[CaseResult]) -> EvalSummary:

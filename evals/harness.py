@@ -4,13 +4,14 @@ The reviewer is injected so the harness can be exercised with a fake in tests
 (deterministic, no network) and with the real `LLMReviewer` for an actual eval.
 """
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Callable, Protocol
 
 from app.models.findings import ReviewResult
 from app.retrieval.retriever import CodeRetriever
 from evals.dataset import Case
-from evals.scoring import CaseResult, DEFAULT_TOLERANCE, score_case
+from evals.scoring import CaseResult, DEFAULT_TOLERANCE, filter_by_severity, score_case
 
 
 class Reviewer(Protocol):
@@ -31,23 +32,42 @@ def run_eval(
     *,
     retrieval: bool = False,
     tolerance: int = DEFAULT_TOLERANCE,
+    min_severity: str = "minor",
+    workers: int = 1,
     on_case: Callable[[Case, CaseResult], None] | None = None,
 ) -> list[CaseRun]:
-    """Review and score every case. Returns one CaseRun per case, in order."""
-    runs: list[CaseRun] = []
-    for case in cases:
+    """Review and score every case. Returns one CaseRun per case, in order.
+
+    `min_severity` drops findings below that severity before scoring, which
+    models a reviewer that only surfaces major/critical issues. `workers` runs
+    cases concurrently (the LLM call is I/O bound); results keep case order.
+    """
+
+    def run_one(case: Case) -> CaseRun:
         context = _context_for(case) if retrieval else None
         review = reviewer.review(case.diff, context)
-        result = score_case(case, review.findings, tolerance)
-        runs.append(
-            CaseRun(
-                result=result,
-                findings_repr=[_finding_repr(f) for f in review.findings],
-            )
-        )
+        findings = filter_by_severity(review.findings, min_severity)
+        result = score_case(case, findings, tolerance)
         if on_case is not None:
             on_case(case, result)
-    return runs
+        return CaseRun(result=result, findings_repr=[_finding_repr(f) for f in findings])
+
+    if workers <= 1:
+        return [run_one(case) for case in cases]
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return list(pool.map(run_one, cases))
+
+
+def run_trials(
+    cases: list[Case],
+    reviewer: Reviewer,
+    *,
+    trials: int = 1,
+    **kwargs,
+) -> list[list[CaseRun]]:
+    """Repeat the eval `trials` times. LLM output varies run to run, so a
+    single run's precision/recall is one sample, not the number."""
+    return [run_eval(cases, reviewer, **kwargs) for _ in range(trials)]
 
 
 def _context_for(case: Case) -> str | None:

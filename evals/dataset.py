@@ -57,7 +57,7 @@ def load_cases(cases_dir: str | Path = CASES_DIR) -> list[Case]:
         payload = json.loads(path.read_text(encoding="utf-8"))
         records = payload if isinstance(payload, list) else [payload]
         for record in records:
-            case = _case_from_dict(record)
+            case = _case_from_dict(record, base_dir=path.parent)
             if case.id in seen:
                 raise ValueError(f"Duplicate case id: {case.id!r}")
             seen.add(case.id)
@@ -66,7 +66,7 @@ def load_cases(cases_dir: str | Path = CASES_DIR) -> list[Case]:
     return sorted(cases, key=lambda c: c.id)
 
 
-def _case_from_dict(record: dict) -> Case:
+def _case_from_dict(record: dict, base_dir: Path | None = None) -> Case:
     expected_raw = record.get("expected")
     expected = None
     if expected_raw is not None:
@@ -81,5 +81,16 @@ def _case_from_dict(record: dict) -> Case:
         label=record["label"],
         diff=record["diff"],
         expected=expected,
-        repo_path=record.get("repo_path"),
+        repo_path=_resolve_repo_path(record.get("repo_path"), base_dir),
     )
+
+
+def _resolve_repo_path(repo_path: str | None, base_dir: Path | None) -> str | None:
+    """Relative repo paths are relative to the case file, so the dataset and
+    its fixture repos can be moved or cloned together."""
+    if not repo_path:
+        return None
+    path = Path(repo_path)
+    if not path.is_absolute() and base_dir is not None:
+        path = (base_dir / path).resolve()
+    return str(path)

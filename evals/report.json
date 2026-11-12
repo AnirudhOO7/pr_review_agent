@@ -1,45 +1,120 @@
 {
-  "generated_at": "2026-06-15T20:33:39+00:00",
+  "generated_at": "2026-11-12T14:10:11+00:00",
   "model": "claude-haiku-4-5",
-  "retrieval": false,
+  "prompt": "v2",
+  "retrieval": true,
   "tolerance": 3,
+  "min_severity": "minor",
+  "trials": 3,
   "metrics": {
-    "precision": 0.7273,
-    "recall": 1.0,
-    "f1": 0.8421,
-    "tp": 8,
-    "fn": 0,
-    "fp": 3,
-    "tn": 1
+    "precision": 0.6932,
+    "recall": 0.9722,
+    "f1": 0.8092,
+    "false_alarm_rate": 0.5439,
+    "tp": 23.3333,
+    "fn": 0.6667,
+    "fp": 10.3333,
+    "tn": 8.6667
+  },
+  "metrics_std": {
+    "precision": 0.0065,
+    "recall": 0.0241,
+    "f1": 0.0038,
+    "false_alarm_rate": 0.0304
+  },
+  "subsets": {
+    "context-dependent": {
+      "cases": 11,
+      "metrics": {
+        "precision": 0.6667,
+        "recall": 1.0,
+        "f1": 0.8,
+        "false_alarm_rate": 0.6,
+        "tp": 6.0,
+        "fn": 0.0,
+        "fp": 3.0,
+        "tn": 2.0
+      },
+      "metrics_std": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "false_alarm_rate": 0.0
+      }
+    }
   },
   "recall_by_bug_type": {
+    "async": {
+      "caught": 3,
+      "total": 3
+    },
+    "caller-contract": {
+      "caught": 18,
+      "total": 18
+    },
+    "datetime": {
+      "caught": 3,
+      "total": 3
+    },
+    "error-handling": {
+      "caught": 3,
+      "total": 3
+    },
+    "infinite-loop": {
+      "caught": 3,
+      "total": 3
+    },
     "injection": {
-      "caught": 2,
-      "total": 2
+      "caught": 6,
+      "total": 6
+    },
+    "insecure-deserialization": {
+      "caught": 3,
+      "total": 3
+    },
+    "iteration-mutation": {
+      "caught": 3,
+      "total": 3
+    },
+    "logic-error": {
+      "caught": 3,
+      "total": 3
     },
     "missing-guard": {
-      "caught": 1,
-      "total": 1
+      "caught": 3,
+      "total": 3
     },
     "missing-null-check": {
-      "caught": 1,
-      "total": 1
+      "caught": 3,
+      "total": 3
     },
     "mutable-default": {
-      "caught": 1,
-      "total": 1
+      "caught": 3,
+      "total": 3
     },
     "off-by-one": {
-      "caught": 1,
-      "total": 1
+      "caught": 3,
+      "total": 3
+    },
+    "path-traversal": {
+      "caught": 3,
+      "total": 3
     },
     "race-condition": {
       "caught": 1,
-      "total": 1
+      "total": 3
     },
     "resource-leak": {
-      "caught": 1,
-      "total": 1
+      "caught": 3,
+      "total": 3
+    },
+    "weak-crypto": {
+      "caught": 3,
+      "total": 3
+    },
+    "xss": {
+      "caught": 3,
+      "total": 3
     }
   },
   "cases": [
@@ -48,12 +123,15 @@
       "label": "buggy",
       "bug_type": "injection",
       "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
       "matched_line": 3,
-      "num_findings": 3,
+      "num_findings": 1.67,
       "findings": [
-        "[critical/security] app/ops/backup.py:3 \u2014 Use of os.system() with string concatenation creates a command injection vulnerability. The 'path' parameter is directly concatenated into a shell command without escaping, allowing arbitrary command execution. Use subprocess.run() with a list of arguments instead.",
-        "[major/correctness] app/ops/backup.py:3 \u2014 os.system() return value is ignored. The function should check the return code to verify the tar command succeeded before returning the filename.",
-        "[minor/style] app/ops/backup.py:1 \u2014 Missing module docstring and function docstring. Add documentation explaining the purpose of the archive function."
+        "[critical/security] app/ops/backup.py:3 \u2014 Command injection vulnerability: User-controlled `path` is concatenated directly into a shell command without escaping. An attacker can pass malicious input like `; rm -rf /` to execute arbitrary commands. Use `subprocess.run()` with a list of arguments instead of `os.system()`."
       ]
     },
     {
@@ -61,10 +139,63 @@
       "label": "buggy",
       "bug_type": "missing-guard",
       "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
       "matched_line": 3,
-      "num_findings": 1,
+      "num_findings": 1.0,
       "findings": [
-        "[major/correctness] app/stats/metrics.py:3 \u2014 Division by zero error: len(values) can be 0 if an empty list is passed, causing a ZeroDivisionError. Add validation to handle empty input."
+        "[major/correctness] app/stats/metrics.py:3 \u2014 Division by zero when `values` is an empty list. The function will crash with ZeroDivisionError if called with an empty sequence."
+      ]
+    },
+    {
+      "case_id": "buggy_infinite_pagination",
+      "label": "buggy",
+      "bug_type": "infinite-loop",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 9,
+      "num_findings": 1.0,
+      "findings": [
+        "[major/correctness] app/sync/fetch.py:9 \u2014 Fetching 'cursor' from response instead of 'next_cursor'. The code checks for 'next_cursor' to detect pagination continuation (line 7), but then fetches the wrong key 'cursor' for the next request (line 9). This should be 'next_cursor' to maintain pagination chain consistency, otherwise cursor will be None and pagination will fail."
+      ]
+    },
+    {
+      "case_id": "buggy_md5_password",
+      "label": "buggy",
+      "bug_type": "weak-crypto",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 4,
+      "num_findings": 1.33,
+      "findings": [
+        "[critical/security] app/auth/passwords.py:4 \u2014 MD5 is cryptographically broken and should not be used for password hashing. Use a proper password hashing algorithm like bcrypt, argon2, or scrypt instead. MD5 is vulnerable to collision attacks and provides no salt protection against rainbow table attacks."
+      ]
+    },
+    {
+      "case_id": "buggy_missing_await",
+      "label": "buggy",
+      "bug_type": "async",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 2,
+      "num_findings": 1.0,
+      "findings": [
+        "[critical/correctness] src/routes/profile.js:2 \u2014 Removed `await` from async `db.findUser()` call. The function will return a Promise instead of the user object, causing the `!user` check to always be false (Promises are truthy) and the response to send `{ id: undefined, name: undefined }` instead of the actual user data."
       ]
     },
     {
@@ -72,12 +203,16 @@
       "label": "buggy",
       "bug_type": "missing-null-check",
       "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
       "matched_line": 2,
-      "num_findings": 3,
+      "num_findings": 1.33,
       "findings": [
-        "[critical/correctness] app/users/profile.py:2 \u2014 No null check before accessing user dictionary. If users.get(user_id) returns None, line 3 will raise a TypeError when attempting to access None['first'].",
-        "[major/correctness] app/users/profile.py:3 \u2014 Dictionary key access without validation. If 'first' or 'last' keys are missing, this will raise a KeyError. Consider using .get() with defaults instead.",
-        "[major/maintainability] app/users/profile.py:1 \u2014 Missing docstring explaining function behavior, parameters, and return value."
+        "[critical/correctness] app/users/profile.py:2 \u2014 users.get(user_id) returns None when user_id is not found, but line 3 immediately accesses user[\"first\"] without checking for None, causing a TypeError",
+        "[critical/correctness] app/users/profile.py:3 \u2014 Dictionary access user[\"first\"] and user[\"last\"] will raise KeyError if those keys don't exist in the user dictionary"
       ]
     },
     {
@@ -85,10 +220,47 @@
       "label": "buggy",
       "bug_type": "mutable-default",
       "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
       "matched_line": 1,
-      "num_findings": 1,
+      "num_findings": 1.0,
       "findings": [
-        "[major/correctness] app/util/collect.py:1 \u2014 Mutable default argument `bucket=[]` is a classic Python pitfall. The same list object is reused across all function calls, causing unexpected state sharing between invocations. Use `bucket=None` and initialize to `[]` inside the function instead."
+        "[major/correctness] app/util/collect.py:1 \u2014 Mutable default argument `bucket=[]` is shared across all function calls. This causes items added in one call to persist in subsequent calls, leading to unexpected behavior. For example, `add_item(1)` followed by `add_item(2)` will return `[1, 2]` instead of `[2]`."
+      ]
+    },
+    {
+      "case_id": "buggy_mutate_while_iterating",
+      "label": "buggy",
+      "bug_type": "iteration-mutation",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 2,
+      "num_findings": 1.0,
+      "findings": [
+        "[major/correctness] app/cart/cleanup.py:2 \u2014 Modifying a list while iterating over it causes the iterator to skip elements. When a line is removed, the next iteration skips the following element. For example, if lines at indices 0 and 1 both have qty==0, only line 0 will be removed and line 1 will be skipped entirely."
+      ]
+    },
+    {
+      "case_id": "buggy_naive_datetime",
+      "label": "buggy",
+      "bug_type": "datetime",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 10,
+      "num_findings": 1.0,
+      "findings": [
+        "[major/correctness] app/auth/tokens.py:10 \u2014 Timezone mismatch: token.expires_at is timezone-aware UTC datetime (per comment), but datetime.now() returns naive local time. Adding a 30-second grace period to the expiration check will produce incorrect results depending on the system's timezone offset. Should use datetime.now(timezone.utc) to match the timezone-aware token.expires_at."
       ]
     },
     {
@@ -96,38 +268,93 @@
       "label": "buggy",
       "bug_type": "off-by-one",
       "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
       "matched_line": 4,
-      "num_findings": 2,
+      "num_findings": 1.0,
       "findings": [
-        "[critical/correctness] app/utils/pagination.py:4 \u2014 Incorrect slice indexing: `items[i * page_size]` accesses a single element at position `i * page_size`, not a page of items. Should use `items[i * page_size:(i + 1) * page_size]` to get a slice of `page_size` items.",
-        "[major/correctness] app/utils/pagination.py:1 \u2014 The function name `last_page_items` suggests returning only the last page, but the implementation attempts to return all pages. The function logic and name are misaligned."
+        "[critical/correctness] app/utils/pagination.py:4 \u2014 IndexError when accessing items: loop iterates from 0 to pages (inclusive), but items[i * page_size] will go out of bounds on the last iteration. When i == pages, i * page_size == len(items), causing an index out of range error. For example, with items=[1,2,3,4,5] and page_size=2, pages=2, the loop tries to access items[0], items[2], items[4] (valid) then items[6] (invalid)."
+      ]
+    },
+    {
+      "case_id": "buggy_or_condition_authz",
+      "label": "buggy",
+      "bug_type": "logic-error",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 2,
+      "num_findings": 1.0,
+      "findings": [
+        "[critical/correctness] app/projects/permissions.py:2 \u2014 Logic error in boolean expression: `user.role == \"admin\" or \"owner\"` always evaluates to True because the string literal \"owner\" is truthy. Should be `user.role == \"admin\" or user.role == \"owner\"`. This breaks the permission check by granting delete access to all users when the condition is evaluated."
+      ]
+    },
+    {
+      "case_id": "buggy_path_traversal",
+      "label": "buggy",
+      "bug_type": "path-traversal",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 11,
+      "num_findings": 1.0,
+      "findings": [
+        "[critical/security] app/files/download.py:11 \u2014 Path traversal vulnerability: os.path.join does not prevent directory traversal. An attacker can use filename like '../../../etc/passwd' to read arbitrary files. Must validate that the resolved path stays within UPLOAD_DIR using os.path.abspath and startswith check."
+      ]
+    },
+    {
+      "case_id": "buggy_pickle_session",
+      "label": "buggy",
+      "bug_type": "insecure-deserialization",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 9,
+      "num_findings": 1.0,
+      "findings": [
+        "[critical/security] app/web/session.py:9 \u2014 Using pickle.loads() on untrusted cookie data is a critical security vulnerability. Pickle can execute arbitrary code during deserialization. An attacker can craft a malicious cookie that executes arbitrary Python code on the server. Use json.loads() instead, which safely deserializes only data structures without code execution risk."
       ]
     },
     {
       "case_id": "buggy_race_condition",
       "label": "buggy",
       "bug_type": "race-condition",
-      "outcome": "TP",
+      "outcome": "FN",
+      "outcomes": [
+        "FN",
+        "TP",
+        "FN"
+      ],
       "matched_line": 1,
-      "num_findings": 4,
-      "findings": [
-        "[major/maintainability] app/cache/counter.py:1 \u2014 Module-level mutable global state (`counts` dict) makes the module non-reentrant and difficult to test. Consider using a class-based approach or dependency injection to manage state.",
-        "[minor/style] app/cache/counter.py:2 \u2014 Function `increment` should have a docstring explaining its purpose, parameters, and return value.",
-        "[minor/style] app/cache/counter.py:3 \u2014 The initialization check can be simplified using `counts.get(key, 0)` or `counts.setdefault(key, 0)` instead of the if statement.",
-        "[minor/correctness] app/cache/counter.py:5 \u2014 Using `counts[key] = counts[key] + 1` is less Pythonic and less efficient than using `counts[key] += 1`."
-      ]
+      "num_findings": 0.33,
+      "findings": []
     },
     {
       "case_id": "buggy_resource_leak",
       "label": "buggy",
       "bug_type": "resource-leak",
       "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
       "matched_line": 1,
-      "num_findings": 3,
+      "num_findings": 1.0,
       "findings": [
-        "[major/correctness] app/io/reader.py:1 \u2014 File handle is never closed. Use a context manager (with statement) or call f.close() in a finally block to ensure proper resource cleanup.",
-        "[major/correctness] app/io/reader.py:2 \u2014 No error handling for file operations. If the file doesn't exist or cannot be read, an exception will be raised. Consider handling FileNotFoundError or IOError.",
-        "[minor/maintainability] app/io/reader.py:1 \u2014 Function lacks a docstring explaining its purpose, parameters, and return type."
+        "[major/correctness] app/io/reader.py:1 \u2014 File handle is never closed. The file opened at line 2 is not closed, causing a resource leak. If this function is called many times, file descriptors will be exhausted. Use 'with' statement or explicit close() call to ensure the file is closed."
       ]
     },
     {
@@ -135,24 +362,107 @@
       "label": "buggy",
       "bug_type": "injection",
       "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
       "matched_line": 2,
-      "num_findings": 2,
+      "num_findings": 1.0,
       "findings": [
-        "[critical/security] app/db/queries.py:2 \u2014 SQL injection vulnerability: user input is concatenated directly into the SQL query string. Use parameterized queries with placeholders instead (e.g., cursor.execute(query, (username,)))",
-        "[minor/maintainability] app/db/queries.py:1 \u2014 Function lacks docstring explaining parameters, return value, and potential exceptions"
+        "[critical/security] app/db/queries.py:2 \u2014 SQL injection vulnerability: username is concatenated directly into the query string without parameterization. An attacker can inject arbitrary SQL by providing a username like \"' OR '1'='1\" to bypass authentication or manipulate query logic."
+      ]
+    },
+    {
+      "case_id": "buggy_swallowed_payment_error",
+      "label": "buggy",
+      "bug_type": "error-handling",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 14,
+      "num_findings": 1.0,
+      "findings": [
+        "[major/correctness] app/billing/capture.py:14 \u2014 Exception is silently caught and logged, but execution continues to mark order as paid even though the charge failed. This causes data corruption - the order status becomes 'paid' without payment actually succeeding. The caller expects capture() to either succeed completely or raise an exception to indicate failure."
+      ]
+    },
+    {
+      "case_id": "buggy_xss_innerhtml",
+      "label": "buggy",
+      "bug_type": "xss",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 4,
+      "num_findings": 1.0,
+      "findings": [
+        "[critical/security] src/ui/comments.js:4 \u2014 XSS vulnerability: comment.author and comment.body are directly interpolated into innerHTML without escaping. Malicious input like '<img src=x onerror=alert(1)>' will execute arbitrary JavaScript in the page."
       ]
     },
     {
       "case_id": "clean_average_guarded",
       "label": "clean",
       "bug_type": null,
-      "outcome": "FP",
+      "outcome": "TN",
+      "outcomes": [
+        "TN",
+        "TN",
+        "TN"
+      ],
       "matched_line": null,
-      "num_findings": 3,
+      "num_findings": 0.0,
+      "findings": []
+    },
+    {
+      "case_id": "clean_awaited_lookup",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "TN",
+      "outcomes": [
+        "TN",
+        "FP",
+        "TN"
+      ],
+      "matched_line": null,
+      "num_findings": 0.33,
+      "findings": []
+    },
+    {
+      "case_id": "clean_aware_datetime",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "FP",
+      "outcomes": [
+        "FP",
+        "FP",
+        "TN"
+      ],
+      "matched_line": null,
+      "num_findings": 0.67,
       "findings": [
-        "[major/correctness] app/stats/metrics_safe.py \u2014 The function lacks type hints, making it unclear what types are expected and what is returned. This reduces code clarity and may cause runtime errors if non-numeric values are passed.",
-        "[minor/style] app/stats/metrics_safe.py \u2014 The function lacks a docstring explaining its purpose, parameters, and return value. This is important for public utility functions.",
-        "[minor/correctness] app/stats/metrics_safe.py:4 \u2014 The division operation assumes all values in the list are numeric. If non-numeric values are present, this will raise a TypeError. Consider adding type validation or explicit type hints."
+        "[major/correctness] app/auth/tokens.py:10 \u2014 Logic inversion: adding GRACE to expiration time makes tokens expire later, not earlier. If the intent is to add a grace period where tokens are considered expired slightly before their actual expiration, the comparison should be `token.expires_at <= now + GRACE` or `token.expires_at - GRACE <= now`. Current code returns True when `now` is 30+ seconds *after* the actual expiration time, effectively extending token validity."
+      ]
+    },
+    {
+      "case_id": "clean_bounded_pagination",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "FP",
+      "outcomes": [
+        "FP",
+        "FP",
+        "FP"
+      ],
+      "matched_line": null,
+      "num_findings": 1.0,
+      "findings": [
+        "[major/correctness] app/sync/fetch.py:10 \u2014 When page.get(\"next_cursor\") returns None, the loop breaks on the next iteration. However, if \"next_cursor\" key is missing and get() returns None, or if the key exists with None value, the code behaves identically. The real issue is that an empty string or 0 would be falsy and cause an early break, even if the API intends to use these as valid cursors. If the paginated API ever uses falsy but valid cursor values, pagination will terminate prematurely, causing incomplete data to be returned."
       ]
     },
     {
@@ -160,12 +470,15 @@
       "label": "clean",
       "bug_type": null,
       "outcome": "FP",
+      "outcomes": [
+        "FP",
+        "FP",
+        "FP"
+      ],
       "matched_line": null,
-      "num_findings": 3,
+      "num_findings": 1.0,
       "findings": [
-        "[major/correctness] app/io/safe_reader.py:1 \u2014 File handle is not closed if an exception occurs during read(). Use context manager properly or ensure exception handling. Consider: with open(path) as f: return f.read() ensures cleanup, but adding error handling would improve robustness.",
-        "[major/security] app/io/safe_reader.py:1 \u2014 No validation or error handling for file access. The function will raise an unhandled exception if the file doesn't exist or cannot be read. Should add try-except to handle FileNotFoundError, PermissionError, and IOError gracefully.",
-        "[minor/maintainability] app/io/safe_reader.py:1 \u2014 Function name suggests safety ('safe_reader') but implementation lacks error handling. Either add exception handling to match the name's promise, or rename to reflect actual behavior."
+        "[major/correctness] app/io/safe_reader.py:2 \u2014 File handle may not be closed if an exception occurs during f.read(). Use context manager correctly or catch exceptions to ensure cleanup. The current code relies on the context manager, but if read() raises an exception, the file will still be closed by __exit__, however if open() fails, no cleanup is needed. This is actually correct for the context manager pattern. However, there is no error handling for file not found or permission errors, which will propagate as unhandled exceptions."
       ]
     },
     {
@@ -173,21 +486,308 @@
       "label": "clean",
       "bug_type": null,
       "outcome": "TN",
+      "outcomes": [
+        "TN",
+        "TN",
+        "TN"
+      ],
       "matched_line": null,
-      "num_findings": 0,
+      "num_findings": 0.0,
       "findings": []
+    },
+    {
+      "case_id": "clean_payment_error_handled",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "TN",
+      "outcomes": [
+        "TN",
+        "TN",
+        "FP"
+      ],
+      "matched_line": null,
+      "num_findings": 0.33,
+      "findings": []
+    },
+    {
+      "case_id": "clean_rebuild_list",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "TN",
+      "outcomes": [
+        "TN",
+        "TN",
+        "TN"
+      ],
+      "matched_line": null,
+      "num_findings": 0.0,
+      "findings": []
+    },
+    {
+      "case_id": "clean_role_membership",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "TN",
+      "outcomes": [
+        "TN",
+        "TN",
+        "TN"
+      ],
+      "matched_line": null,
+      "num_findings": 0.0,
+      "findings": []
+    },
+    {
+      "case_id": "clean_safe_download",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "FP",
+      "outcomes": [
+        "FP",
+        "FP",
+        "FP"
+      ],
+      "matched_line": null,
+      "num_findings": 1.0,
+      "findings": [
+        "[major/security] app/files/download.py:11 \u2014 Path traversal vulnerability: `is_relative_to()` check is insufficient when UPLOAD_DIR itself is not a directory. If UPLOAD_DIR resolves to a file or symlink, the check can be bypassed. Additionally, resolve() can still be exploited by symlinks in parent directories. Use `os.path.commonpath()` or verify the normalized real path with `os.path.realpath()` to prevent traversal attacks."
+      ]
+    },
+    {
+      "case_id": "clean_scrypt_password",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "FP",
+      "outcomes": [
+        "FP",
+        "FP",
+        "FP"
+      ],
+      "matched_line": null,
+      "num_findings": 1.67,
+      "findings": [
+        "[critical/security] app/auth/passwords.py:12 \u2014 verify_password does not validate stored format before split. Calling with malformed input (e.g., missing ':' or empty string) will raise ValueError, leaking information about the stored password format and allowing an attacker to infer password structure through exception timing or messages."
+      ]
+    },
+    {
+      "case_id": "clean_signed_session",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "FP",
+      "outcomes": [
+        "FP",
+        "FP",
+        "FP"
+      ],
+      "matched_line": null,
+      "num_findings": 1.67,
+      "findings": [
+        "[critical/security] app/web/session.py:13 \u2014 HMAC signature verification uses hexdigest() but cookie likely stores raw bytes or base64. The signature format mismatch will cause all valid cookies to be rejected. Either decode the signature from the cookie format or use digest() instead of hexdigest()."
+      ]
     },
     {
       "case_id": "clean_slugify",
       "label": "clean",
       "bug_type": null,
-      "outcome": "FP",
+      "outcome": "TN",
+      "outcomes": [
+        "TN",
+        "TN",
+        "TN"
+      ],
       "matched_line": null,
-      "num_findings": 2,
+      "num_findings": 0.0,
+      "findings": []
+    },
+    {
+      "case_id": "clean_textcontent",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "FP",
+      "outcomes": [
+        "FP",
+        "FP",
+        "FP"
+      ],
+      "matched_line": null,
+      "num_findings": 1.0,
       "findings": [
-        "[major/correctness] app/util/strings.py:1 \u2014 slugify function does not handle special characters and unicode. It only removes spaces but leaves punctuation, accents, and other non-alphanumeric characters that are typically invalid in URL slugs. Consider using a slug library or implementing proper character sanitization.",
-        "[minor/maintainability] app/util/strings.py \u2014 Missing docstring. The function lacks documentation explaining its purpose, parameters, return value, and any constraints or expected behavior."
+        "[major/correctness] src/ui/comments.js:6 \u2014 Mixing DOM nodes and strings in append(): `author` is a DOM node but the second argument is a plain string. The string will be inserted as text, but if `comment.body` contains HTML characters like <, >, or &, they won't be properly escaped in the rendered output. Additionally, if callers expect consistent DOM structure, the text node created from the string won't match the structure of passing a proper element. Use `item.append(author); item.append(document.createTextNode(`: ${comment.body}`));` or `author.after(`: ${comment.body}`)` to ensure correct behavior."
       ]
+    },
+    {
+      "case_id": "ctx_buggy_discount_returns_none",
+      "label": "buggy",
+      "bug_type": "caller-contract",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 9,
+      "num_findings": 2.0,
+      "findings": [
+        "[critical/correctness] shop/pricing.py:9 \u2014 get_discount now returns None for unknown codes, but callers expect 0.0. In shop/checkout.py line 9, `subtotal * (1 - get_discount(promo_code))` will crash with TypeError when get_discount returns None (cannot subtract None from 1). Also breaks contract documented in test_unknown_code_has_no_discount which expects 0.0.",
+        "[major/correctness] shop/pricing.py:9 \u2014 Docstring claims the function returns 'Fractional discount for a promo code, or None for an unknown code', but this breaks the existing contract where unknown codes should get no discount (0.0). The docstring change contradicts the actual usage pattern in shop/checkout.py where None cannot be used in arithmetic operations."
+      ]
+    },
+    {
+      "case_id": "ctx_buggy_find_user_returns_none",
+      "label": "buggy",
+      "bug_type": "caller-contract",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 23,
+      "num_findings": 1.33,
+      "findings": [
+        "[critical/correctness] shop/users.py:23 \u2014 find_user no longer raises UserNotFound, breaking callers that depend on exception handling. shop/auth.py catches UserNotFound at line 12, and shop/admin.py calls find_user at line 8 without None-checking. The function now returns None instead of raising an exception, violating the contract with existing code.",
+        "[critical/correctness] shop/users.py:23 \u2014 shop/receipts.py uses split_full_name on user.full_name obtained indirectly from find_user results. If find_user now returns None, code paths will break when None is passed to split_full_name, causing a crash (e.g., when greeting(None) is called with a None user)."
+      ]
+    },
+    {
+      "case_id": "ctx_buggy_reserve_stock_required_param",
+      "label": "buggy",
+      "bug_type": "caller-contract",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 13,
+      "num_findings": 1.0,
+      "findings": [
+        "[critical/correctness] shop/inventory.py:13 \u2014 Function signature changed from `reserve_stock(sku, qty)` to `reserve_stock(sku, qty, warehouse_id)`, adding a required parameter. The caller in `shop/checkout.py` line 15 calls `reserve_stock(item.sku, item.qty)` with only 2 arguments, which will now raise a TypeError due to missing the `warehouse_id` argument."
+      ]
+    },
+    {
+      "case_id": "ctx_buggy_serialize_key_rename",
+      "label": "buggy",
+      "bug_type": "caller-contract",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 7,
+      "num_findings": 1.0,
+      "findings": [
+        "[critical/correctness] shop/orders.py:7 \u2014 Dictionary key changed from 'total_cents' to 'amount_cents', breaking caller shop/receipts.py:10 which accesses data['total_cents']"
+      ]
+    },
+    {
+      "case_id": "ctx_buggy_session_ttl_timedelta",
+      "label": "buggy",
+      "bug_type": "caller-contract",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 11,
+      "num_findings": 1.0,
+      "findings": [
+        "[critical/correctness] shop/sessions.py:11 \u2014 Return type of session_ttl() changed from int (seconds) to timedelta object, breaking caller shop/auth.py line 15 which performs arithmetic: time.time() + session_ttl(). time.time() returns a float (seconds since epoch), and adding a timedelta to a float will raise TypeError."
+      ]
+    },
+    {
+      "case_id": "ctx_buggy_split_name_order",
+      "label": "buggy",
+      "bug_type": "caller-contract",
+      "outcome": "TP",
+      "outcomes": [
+        "TP",
+        "TP",
+        "TP"
+      ],
+      "matched_line": 32,
+      "num_findings": 1.0,
+      "findings": [
+        "[critical/correctness] shop/users.py:32 \u2014 Return value order changed from (first, last) to (last, first), breaking caller in shop/receipts.py:14 which unpacks as `first, last = split_full_name(user.full_name)` and uses `first` in the greeting. This will now use the last name instead of the first name."
+      ]
+    },
+    {
+      "case_id": "ctx_clean_find_user_strip",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "FP",
+      "outcomes": [
+        "FP",
+        "FP",
+        "FP"
+      ],
+      "matched_line": null,
+      "num_findings": 1.0,
+      "findings": [
+        "[major/correctness] shop/users.py:24 \u2014 Adding `.strip()` changes the behavior of `find_user()` in a way that breaks the contract with `shop/admin.py:promote_to_admin()`. When `promote_to_admin()` calls `find_user(email)` without catching `UserNotFound`, it expects the function to raise an exception for invalid emails. However, `.strip()` will silently normalize whitespace-padded emails that were never registered, causing the function to succeed when it should fail. This transforms an invalid email like \" user@example.com\" into a valid lookup, violating the original semantics and potentially allowing promotion of unregistered users."
+      ]
+    },
+    {
+      "case_id": "ctx_clean_format_price_currency",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "FP",
+      "outcomes": [
+        "FP",
+        "FP",
+        "FP"
+      ],
+      "matched_line": null,
+      "num_findings": 1.33,
+      "findings": [
+        "[major/correctness] shop/pricing.py:17 \u2014 format_price() signature changed to add required `currency` parameter with default value, but existing callers in shop/checkout.py (line 17) and shop/receipts.py (line 10) pass only one argument. While the default parameter allows backward compatibility, if any caller explicitly passes a second positional argument expecting the old behavior, it will break. More critically, the function now accepts a `currency` parameter that could be exploited or misused - if an attacker can control the currency parameter, they could inject arbitrary strings into the price display via the fallback case `currency + ' '`, creating a format string-like vulnerability in the output."
+      ]
+    },
+    {
+      "case_id": "ctx_clean_lookup_coupon_normalized",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "FP",
+      "outcomes": [
+        "FP",
+        "FP",
+        "FP"
+      ],
+      "matched_line": null,
+      "num_findings": 1.0,
+      "findings": [
+        "[major/correctness] shop/coupons.py:18 \u2014 lookup_coupon() now requires uppercase codes, but callers in shop/pricing.py:18 pass codes directly from user input without converting to uppercase. The existing DISCOUNTS dict uses uppercase keys ('WELCOME10', 'VIP25'), so this change will cause legitimate coupons to fail lookup when passed in lowercase or mixed case."
+      ]
+    },
+    {
+      "case_id": "ctx_clean_serialize_add_field",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "TN",
+      "outcomes": [
+        "TN",
+        "TN",
+        "TN"
+      ],
+      "matched_line": null,
+      "num_findings": 0.0,
+      "findings": []
+    },
+    {
+      "case_id": "ctx_clean_session_ttl_constant",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "TN",
+      "outcomes": [
+        "TN",
+        "TN",
+        "TN"
+      ],
+      "matched_line": null,
+      "num_findings": 0.0,
+      "findings": []
     }
   ]
 }

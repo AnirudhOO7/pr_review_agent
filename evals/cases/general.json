@@ -1,0 +1,183 @@
+[
+  {
+    "id": "buggy_path_traversal",
+    "label": "buggy",
+    "diff": "--- a/app/files/download.py\n+++ b/app/files/download.py\n@@ -8,4 +8,7 @@\n def download(filename):\n     if not filename:\n         abort(400)\n-    return send_file(UPLOAD_DIR + \"/\" + filename)\n+    path = os.path.join(UPLOAD_DIR, filename)\n+    if not os.path.isfile(path):\n+        abort(404)\n+    return send_file(path)\n",
+    "expected": {
+      "file": "app/files/download.py",
+      "lines": [
+        11
+      ],
+      "bug_type": "path-traversal",
+      "category": "security"
+    }
+  },
+  {
+    "id": "clean_safe_download",
+    "label": "clean",
+    "diff": "--- a/app/files/download.py\n+++ b/app/files/download.py\n@@ -2,8 +2,13 @@\n \n from flask import abort, send_file\n \n-UPLOAD_DIR = Path(\"/srv/uploads\")\n+UPLOAD_DIR = Path(\"/srv/uploads\").resolve()\n \n \n def download(filename):\n-    return send_file(UPLOAD_DIR / filename)\n+    if not filename:\n+        abort(400)\n+    path = (UPLOAD_DIR / filename).resolve()\n+    if not path.is_relative_to(UPLOAD_DIR) or not path.is_file():\n+        abort(404)\n+    return send_file(path)\n"
+  },
+  {
+    "id": "buggy_pickle_session",
+    "label": "buggy",
+    "diff": "--- a/app/web/session.py\n+++ b/app/web/session.py\n@@ -1,8 +1,8 @@\n import base64\n-import json\n+import pickle\n \n \n def load_session(cookie_value):\n     if not cookie_value:\n         return {}\n-    return json.loads(base64.urlsafe_b64decode(cookie_value))\n+    return pickle.loads(base64.urlsafe_b64decode(cookie_value))\n",
+    "expected": {
+      "file": "app/web/session.py",
+      "lines": [
+        8
+      ],
+      "bug_type": "insecure-deserialization",
+      "category": "security"
+    }
+  },
+  {
+    "id": "clean_signed_session",
+    "label": "clean",
+    "diff": "--- a/app/web/session.py\n+++ b/app/web/session.py\n@@ -1,8 +1,16 @@\n import base64\n+import hashlib\n+import hmac\n import json\n+\n+from app.config import SECRET_KEY\n \n \n def load_session(cookie_value):\n-    if not cookie_value:\n+    if not cookie_value or \".\" not in cookie_value:\n         return {}\n-    return json.loads(base64.urlsafe_b64decode(cookie_value))\n+    payload, signature = cookie_value.rsplit(\".\", 1)\n+    expected = hmac.new(SECRET_KEY, payload.encode(), hashlib.sha256).hexdigest()\n+    if not hmac.compare_digest(expected, signature):\n+        return {}\n+    return json.loads(base64.urlsafe_b64decode(payload))\n"
+  },
+  {
+    "id": "buggy_md5_password",
+    "label": "buggy",
+    "diff": "--- /dev/null\n+++ b/app/auth/passwords.py\n@@ -0,0 +1,9 @@\n+import hashlib\n+\n+\n+def hash_password(password):\n+    return hashlib.md5(password.encode()).hexdigest()\n+\n+\n+def verify_password(password, stored_hash):\n+    return hash_password(password) == stored_hash\n",
+    "expected": {
+      "file": "app/auth/passwords.py",
+      "lines": [
+        5
+      ],
+      "bug_type": "weak-crypto",
+      "category": "security"
+    }
+  },
+  {
+    "id": "clean_scrypt_password",
+    "label": "clean",
+    "diff": "--- /dev/null\n+++ b/app/auth/passwords.py\n@@ -0,0 +1,17 @@\n+import hashlib\n+import hmac\n+import os\n+\n+\n+def hash_password(password):\n+    salt = os.urandom(16)\n+    digest = hashlib.scrypt(password.encode(), salt=salt, n=2**14, r=8, p=1)\n+    return salt.hex() + \":\" + digest.hex()\n+\n+\n+def verify_password(password, stored):\n+    salt_hex, digest_hex = stored.split(\":\")\n+    digest = hashlib.scrypt(\n+        password.encode(), salt=bytes.fromhex(salt_hex), n=2**14, r=8, p=1\n+    )\n+    return hmac.compare_digest(digest.hex(), digest_hex)\n"
+  },
+  {
+    "id": "buggy_swallowed_payment_error",
+    "label": "buggy",
+    "diff": "--- a/app/billing/capture.py\n+++ b/app/billing/capture.py\n@@ -1,7 +1,14 @@\n+import logging\n+\n from app.billing.gateway import charge\n+\n+log = logging.getLogger(__name__)\n \n \n def capture(order):\n-    charge(order.customer_id, order.total_cents)\n+    try:\n+        charge(order.customer_id, order.total_cents)\n+    except Exception:\n+        log.warning(\"charge failed for order %s\", order.id)\n     order.status = \"paid\"\n     order.save()\n",
+    "expected": {
+      "file": "app/billing/capture.py",
+      "lines": [
+        11,
+        12
+      ],
+      "bug_type": "error-handling",
+      "category": "correctness"
+    }
+  },
+  {
+    "id": "clean_payment_error_handled",
+    "label": "clean",
+    "diff": "--- a/app/billing/capture.py\n+++ b/app/billing/capture.py\n@@ -1,7 +1,16 @@\n-from app.billing.gateway import charge\n+import logging\n+\n+from app.billing.gateway import CardDeclined, charge\n+\n+log = logging.getLogger(__name__)\n \n \n def capture(order):\n-    charge(order.customer_id, order.total_cents)\n-    order.status = \"paid\"\n+    try:\n+        charge(order.customer_id, order.total_cents)\n+    except CardDeclined:\n+        log.info(\"card declined for order %s\", order.id)\n+        order.status = \"payment_failed\"\n+    else:\n+        order.status = \"paid\"\n     order.save()\n"
+  },
+  {
+    "id": "buggy_or_condition_authz",
+    "label": "buggy",
+    "diff": "--- a/app/projects/permissions.py\n+++ b/app/projects/permissions.py\n@@ -1,2 +1,4 @@\n def can_delete_project(user, project):\n+    if user.role == \"admin\" or \"owner\":\n+        return True\n     return user.id == project.owner_id\n",
+    "expected": {
+      "file": "app/projects/permissions.py",
+      "lines": [
+        2
+      ],
+      "bug_type": "logic-error",
+      "category": "security"
+    }
+  },
+  {
+    "id": "clean_role_membership",
+    "label": "clean",
+    "diff": "--- a/app/projects/permissions.py\n+++ b/app/projects/permissions.py\n@@ -1,2 +1,7 @@\n+PRIVILEGED_ROLES = {\"admin\", \"owner\"}\n+\n+\n def can_delete_project(user, project):\n+    if user.role in PRIVILEGED_ROLES:\n+        return True\n     return user.id == project.owner_id\n"
+  },
+  {
+    "id": "buggy_naive_datetime",
+    "label": "buggy",
+    "diff": "--- a/app/auth/tokens.py\n+++ b/app/auth/tokens.py\n@@ -1,6 +1,8 @@\n-from datetime import datetime, timezone\n+from datetime import datetime, timedelta, timezone\n+\n+GRACE = timedelta(seconds=30)\n \n \n def is_expired(token):\n     # token.expires_at is a timezone-aware UTC datetime\n-    return token.expires_at <= datetime.now(timezone.utc)\n+    return token.expires_at + GRACE <= datetime.now()\n",
+    "expected": {
+      "file": "app/auth/tokens.py",
+      "lines": [
+        8
+      ],
+      "bug_type": "datetime",
+      "category": "correctness"
+    }
+  },
+  {
+    "id": "clean_aware_datetime",
+    "label": "clean",
+    "diff": "--- a/app/auth/tokens.py\n+++ b/app/auth/tokens.py\n@@ -1,6 +1,9 @@\n-from datetime import datetime, timezone\n+from datetime import datetime, timedelta, timezone\n+\n+GRACE = timedelta(seconds=30)\n \n \n-def is_expired(token):\n+def is_expired(token, now=None):\n     # token.expires_at is a timezone-aware UTC datetime\n-    return token.expires_at <= datetime.now(timezone.utc)\n+    now = now or datetime.now(timezone.utc)\n+    return token.expires_at + GRACE <= now\n"
+  },
+  {
+    "id": "buggy_mutate_while_iterating",
+    "label": "buggy",
+    "diff": "--- /dev/null\n+++ b/app/cart/cleanup.py\n@@ -0,0 +1,5 @@\n+def drop_empty_lines(cart):\n+    for line in cart.lines:\n+        if line.qty == 0:\n+            cart.lines.remove(line)\n+    return cart\n",
+    "expected": {
+      "file": "app/cart/cleanup.py",
+      "lines": [
+        4
+      ],
+      "bug_type": "iteration-mutation",
+      "category": "correctness"
+    }
+  },
+  {
+    "id": "clean_rebuild_list",
+    "label": "clean",
+    "diff": "--- /dev/null\n+++ b/app/cart/cleanup.py\n@@ -0,0 +1,3 @@\n+def drop_empty_lines(cart):\n+    cart.lines = [line for line in cart.lines if line.qty > 0]\n+    return cart\n"
+  },
+  {
+    "id": "buggy_infinite_pagination",
+    "label": "buggy",
+    "diff": "--- /dev/null\n+++ b/app/sync/fetch.py\n@@ -0,0 +1,10 @@\n+def fetch_all(client):\n+    items = []\n+    cursor = None\n+    while True:\n+        page = client.list_items(cursor=cursor)\n+        items.extend(page[\"items\"])\n+        if not page.get(\"next_cursor\"):\n+            break\n+        cursor = page.get(\"cursor\")\n+    return items\n",
+    "expected": {
+      "file": "app/sync/fetch.py",
+      "lines": [
+        9
+      ],
+      "bug_type": "infinite-loop",
+      "category": "correctness"
+    }
+  },
+  {
+    "id": "clean_bounded_pagination",
+    "label": "clean",
+    "diff": "--- /dev/null\n+++ b/app/sync/fetch.py\n@@ -0,0 +1,13 @@\n+MAX_PAGES = 1000\n+\n+\n+def fetch_all(client):\n+    items = []\n+    cursor = None\n+    for _ in range(MAX_PAGES):\n+        page = client.list_items(cursor=cursor)\n+        items.extend(page[\"items\"])\n+        cursor = page.get(\"next_cursor\")\n+        if not cursor:\n+            break\n+    return items\n"
+  },
+  {
+    "id": "buggy_missing_await",
+    "label": "buggy",
+    "diff": "--- a/src/routes/profile.js\n+++ b/src/routes/profile.js\n@@ -1,4 +1,7 @@\n export async function getProfile(req, res) {\n-  const user = await db.findUser(req.params.id);\n-  res.json(user);\n+  const user = db.findUser(req.params.id);\n+  if (!user) {\n+    return res.status(404).json({ error: \"not found\" });\n+  }\n+  res.json({ id: user.id, name: user.name });\n }\n",
+    "expected": {
+      "file": "src/routes/profile.js",
+      "lines": [
+        2
+      ],
+      "bug_type": "async",
+      "category": "correctness"
+    }
+  },
+  {
+    "id": "clean_awaited_lookup",
+    "label": "clean",
+    "diff": "--- a/src/routes/profile.js\n+++ b/src/routes/profile.js\n@@ -1,4 +1,7 @@\n export async function getProfile(req, res) {\n   const user = await db.findUser(req.params.id);\n-  res.json(user);\n+  if (!user) {\n+    return res.status(404).json({ error: \"not found\" });\n+  }\n+  res.json({ id: user.id, name: user.name });\n }\n"
+  },
+  {
+    "id": "buggy_xss_innerhtml",
+    "label": "buggy",
+    "diff": "--- /dev/null\n+++ b/src/ui/comments.js\n@@ -0,0 +1,6 @@\n+export function renderComment(list, comment) {\n+  const item = document.createElement(\"li\");\n+  item.className = \"comment\";\n+  item.innerHTML = `<b>${comment.author}</b>: ${comment.body}`;\n+  list.appendChild(item);\n+}\n",
+    "expected": {
+      "file": "src/ui/comments.js",
+      "lines": [
+        4
+      ],
+      "bug_type": "xss",
+      "category": "security"
+    }
+  },
+  {
+    "id": "clean_textcontent",
+    "label": "clean",
+    "diff": "--- /dev/null\n+++ b/src/ui/comments.js\n@@ -0,0 +1,8 @@\n+export function renderComment(list, comment) {\n+  const item = document.createElement(\"li\");\n+  item.className = \"comment\";\n+  const author = document.createElement(\"b\");\n+  author.textContent = comment.author;\n+  item.append(author, `: ${comment.body}`);\n+  list.appendChild(item);\n+}\n"
+  }
+]

@@ -271,6 +271,15 @@ details.diff-file > summary .chev { display: inline-block; transition: transform
 details.diff-file[open] > summary .chev { transform: rotate(90deg); }
 details.diff-file:not([open]) > summary { border-bottom: 0; }
 
+/* Eval: spread, trials, comparison */
+.pm { font-size: 14px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+.trial-dots { display: inline-flex; gap: 3px; }
+.tdot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.tdot.TP, .tdot.TN { background: var(--ok); }
+.tdot.FP, .tdot.FN { background: var(--critical); }
+table.cmp td { font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.cmp td.best { color: var(--ok); font-weight: 650; }
+
 @media (max-width: 560px) {
   .bar-row { grid-template-columns: 100px 1fr 34px; }
   .note-box { margin-left: 0; }

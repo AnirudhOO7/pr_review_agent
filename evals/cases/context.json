@@ -1,0 +1,116 @@
+[
+  {
+    "id": "ctx_buggy_discount_returns_none",
+    "label": "buggy",
+    "diff": "--- a/shop/pricing.py\n+++ b/shop/pricing.py\n@@ -6,8 +6,10 @@\n \n \n def get_discount(code):\n-    \"\"\"Fractional discount for a promo code; unknown codes get no discount.\"\"\"\n-    return DISCOUNTS.get(code, 0.0)\n+    \"\"\"Fractional discount for a promo code, or None for an unknown code.\"\"\"\n+    if code not in DISCOUNTS:\n+        return None\n+    return DISCOUNTS[code]\n \n \n def format_price(cents):\n",
+    "expected": {
+      "file": "shop/pricing.py",
+      "lines": [
+        11
+      ],
+      "bug_type": "caller-contract",
+      "category": "correctness"
+    },
+    "repo_path": "../fixtures/shop"
+  },
+  {
+    "id": "ctx_buggy_reserve_stock_required_param",
+    "label": "buggy",
+    "diff": "--- a/shop/inventory.py\n+++ b/shop/inventory.py\n@@ -10,11 +10,11 @@\n     pass\n \n \n-def reserve_stock(sku, qty):\n+def reserve_stock(sku, qty, warehouse_id):\n     with _LOCK:\n         available = _STOCK.get(sku, 0)\n         if available < qty:\n-            raise OutOfStock(sku)\n+            raise OutOfStock(f\"{sku} at warehouse {warehouse_id}\")\n         _STOCK[sku] = available - qty\n \n \n",
+    "expected": {
+      "file": "shop/inventory.py",
+      "lines": [
+        13
+      ],
+      "bug_type": "caller-contract",
+      "category": "correctness"
+    },
+    "repo_path": "../fixtures/shop"
+  },
+  {
+    "id": "ctx_buggy_session_ttl_timedelta",
+    "label": "buggy",
+    "diff": "--- a/shop/sessions.py\n+++ b/shop/sessions.py\n@@ -1,13 +1,14 @@\n \"\"\"Login sessions.\"\"\"\n \n import secrets\n+from datetime import timedelta\n \n SESSION_HOURS = 12\n \n \n def session_ttl():\n-    \"\"\"Session lifetime in seconds.\"\"\"\n-    return SESSION_HOURS * 3600\n+    \"\"\"Session lifetime.\"\"\"\n+    return timedelta(hours=SESSION_HOURS)\n \n \n def new_session(user_id):\n",
+    "expected": {
+      "file": "shop/sessions.py",
+      "lines": [
+        11
+      ],
+      "bug_type": "caller-contract",
+      "category": "correctness"
+    },
+    "repo_path": "../fixtures/shop"
+  },
+  {
+    "id": "ctx_buggy_find_user_returns_none",
+    "label": "buggy",
+    "diff": "--- a/shop/users.py\n+++ b/shop/users.py\n@@ -19,11 +19,8 @@\n \n \n def find_user(email):\n-    \"\"\"The user registered under `email`. Raises UserNotFound.\"\"\"\n-    try:\n-        return _USERS[email.lower()]\n-    except KeyError:\n-        raise UserNotFound(email) from None\n+    \"\"\"The user registered under `email`, or None.\"\"\"\n+    return _USERS.get(email.lower())\n \n \n def split_full_name(full_name):\n",
+    "expected": {
+      "file": "shop/users.py",
+      "lines": [
+        23
+      ],
+      "bug_type": "caller-contract",
+      "category": "correctness"
+    },
+    "repo_path": "../fixtures/shop"
+  },
+  {
+    "id": "ctx_buggy_serialize_key_rename",
+    "label": "buggy",
+    "diff": "--- a/shop/orders.py\n+++ b/shop/orders.py\n@@ -4,6 +4,6 @@\n def serialize_order(order):\n     return {\n         \"id\": order.id,\n-        \"total_cents\": order.total_cents,\n+        \"amount_cents\": order.total_cents,\n         \"status\": order.status,\n     }\n",
+    "expected": {
+      "file": "shop/orders.py",
+      "lines": [
+        7
+      ],
+      "bug_type": "caller-contract",
+      "category": "correctness"
+    },
+    "repo_path": "../fixtures/shop"
+  },
+  {
+    "id": "ctx_buggy_split_name_order",
+    "label": "buggy",
+    "diff": "--- a/shop/users.py\n+++ b/shop/users.py\n@@ -27,6 +27,6 @@\n \n \n def split_full_name(full_name):\n-    \"\"\"Split \"Ada Lovelace\" into (\"Ada\", \"Lovelace\").\"\"\"\n+    \"\"\"Split \"Ada Lovelace\" into (\"Lovelace\", \"Ada\") for surname sorting.\"\"\"\n     first, _, last = full_name.strip().partition(\" \")\n-    return first, last\n+    return last, first\n",
+    "expected": {
+      "file": "shop/users.py",
+      "lines": [
+        32
+      ],
+      "bug_type": "caller-contract",
+      "category": "correctness"
+    },
+    "repo_path": "../fixtures/shop"
+  },
+  {
+    "id": "ctx_clean_format_price_currency",
+    "label": "clean",
+    "diff": "--- a/shop/pricing.py\n+++ b/shop/pricing.py\n@@ -10,8 +10,12 @@\n     return DISCOUNTS.get(code, 0.0)\n \n \n-def format_price(cents):\n-    return f\"${cents / 100:.2f}\"\n+CURRENCY_SYMBOLS = {\"USD\": \"$\", \"EUR\": \"€\", \"GBP\": \"£\"}\n+\n+\n+def format_price(cents, currency=\"USD\"):\n+    symbol = CURRENCY_SYMBOLS.get(currency, currency + \" \")\n+    return f\"{symbol}{cents / 100:.2f}\"\n \n \n def apply_coupon(subtotal_cents, coupon_code):\n",
+    "repo_path": "../fixtures/shop"
+  },
+  {
+    "id": "ctx_clean_lookup_coupon_normalized",
+    "label": "clean",
+    "diff": "--- a/shop/coupons.py\n+++ b/shop/coupons.py\n@@ -13,5 +13,7 @@\n \n \n def lookup_coupon(code):\n-    \"\"\"Coupon for `code`, or None if it doesn't exist.\"\"\"\n-    return _COUPONS.get(code)\n+    \"\"\"Coupon for `code` (case-insensitive), or None if it doesn't exist.\"\"\"\n+    if not code:\n+        return None\n+    return _COUPONS.get(code.strip().upper())\n",
+    "repo_path": "../fixtures/shop"
+  },
+  {
+    "id": "ctx_clean_session_ttl_constant",
+    "label": "clean",
+    "diff": "--- a/shop/sessions.py\n+++ b/shop/sessions.py\n@@ -3,11 +3,12 @@\n import secrets\n \n SESSION_HOURS = 12\n+SESSION_TTL_SECONDS = SESSION_HOURS * 60 * 60\n \n \n def session_ttl():\n     \"\"\"Session lifetime in seconds.\"\"\"\n-    return SESSION_HOURS * 3600\n+    return SESSION_TTL_SECONDS\n \n \n def new_session(user_id):\n",
+    "repo_path": "../fixtures/shop"
+  },
+  {
+    "id": "ctx_clean_serialize_add_field",
+    "label": "clean",
+    "diff": "--- a/shop/orders.py\n+++ b/shop/orders.py\n@@ -6,4 +6,5 @@\n         \"id\": order.id,\n         \"total_cents\": order.total_cents,\n         \"status\": order.status,\n+        \"currency\": \"USD\",\n     }\n",
+    "repo_path": "../fixtures/shop"
+  },
+  {
+    "id": "ctx_clean_find_user_strip",
+    "label": "clean",
+    "diff": "--- a/shop/users.py\n+++ b/shop/users.py\n@@ -21,7 +21,7 @@\n def find_user(email):\n     \"\"\"The user registered under `email`. Raises UserNotFound.\"\"\"\n     try:\n-        return _USERS[email.lower()]\n+        return _USERS[email.strip().lower()]\n     except KeyError:\n         raise UserNotFound(email) from None\n \n",
+    "repo_path": "../fixtures/shop"
+  }
+]
