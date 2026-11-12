@@ -10,9 +10,8 @@ wheels/
 # Local review logs can contain full PR diffs.
 runs/
 
-# Generated eval reports (regenerate with `python -m evals.run`).
-evals/report.md
-evals/report.json
-
 # Virtual environments
 .venv
+
+# Local Claude Code launch config
+.claude/

@@ -8,6 +8,7 @@ from app.models.findings import ReviewResult
 class ReviewError(Exception):
     """Raised when the LLM review call fails."""
 
+
 class LLMReviewer:
     def __init__(self, model: str | None = None) -> None:
         if not settings.anthropic_api_key:
@@ -35,7 +36,14 @@ class LLMReviewer:
                 messages=[{"role": "user", "content": self._build_prompt(diff, context)}],
                 output_format=ReviewResult,
             )
-        except (APIStatusError, APIError) as exc:
+        except APIStatusError as exc:
+            if exc.status_code == 401:
+                raise ReviewError(
+                    "Anthropic rejected the API key (401). Update ANTHROPIC_API_KEY "
+                    "in .env and restart the server."
+                ) from exc
+            raise ReviewError(f"LLM review failed: {exc}") from exc
+        except APIError as exc:
             raise ReviewError(f"LLM review failed: {exc}") from exc
         return response.parsed_output
 

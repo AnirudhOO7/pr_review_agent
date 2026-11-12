@@ -1,0 +1,193 @@
+{
+  "generated_at": "2026-06-15T20:33:39+00:00",
+  "model": "claude-haiku-4-5",
+  "retrieval": false,
+  "tolerance": 3,
+  "metrics": {
+    "precision": 0.7273,
+    "recall": 1.0,
+    "f1": 0.8421,
+    "tp": 8,
+    "fn": 0,
+    "fp": 3,
+    "tn": 1
+  },
+  "recall_by_bug_type": {
+    "injection": {
+      "caught": 2,
+      "total": 2
+    },
+    "missing-guard": {
+      "caught": 1,
+      "total": 1
+    },
+    "missing-null-check": {
+      "caught": 1,
+      "total": 1
+    },
+    "mutable-default": {
+      "caught": 1,
+      "total": 1
+    },
+    "off-by-one": {
+      "caught": 1,
+      "total": 1
+    },
+    "race-condition": {
+      "caught": 1,
+      "total": 1
+    },
+    "resource-leak": {
+      "caught": 1,
+      "total": 1
+    }
+  },
+  "cases": [
+    {
+      "case_id": "buggy_command_injection",
+      "label": "buggy",
+      "bug_type": "injection",
+      "outcome": "TP",
+      "matched_line": 3,
+      "num_findings": 3,
+      "findings": [
+        "[critical/security] app/ops/backup.py:3 \u2014 Use of os.system() with string concatenation creates a command injection vulnerability. The 'path' parameter is directly concatenated into a shell command without escaping, allowing arbitrary command execution. Use subprocess.run() with a list of arguments instead.",
+        "[major/correctness] app/ops/backup.py:3 \u2014 os.system() return value is ignored. The function should check the return code to verify the tar command succeeded before returning the filename.",
+        "[minor/style] app/ops/backup.py:1 \u2014 Missing module docstring and function docstring. Add documentation explaining the purpose of the archive function."
+      ]
+    },
+    {
+      "case_id": "buggy_division_no_guard",
+      "label": "buggy",
+      "bug_type": "missing-guard",
+      "outcome": "TP",
+      "matched_line": 3,
+      "num_findings": 1,
+      "findings": [
+        "[major/correctness] app/stats/metrics.py:3 \u2014 Division by zero error: len(values) can be 0 if an empty list is passed, causing a ZeroDivisionError. Add validation to handle empty input."
+      ]
+    },
+    {
+      "case_id": "buggy_missing_null_check",
+      "label": "buggy",
+      "bug_type": "missing-null-check",
+      "outcome": "TP",
+      "matched_line": 2,
+      "num_findings": 3,
+      "findings": [
+        "[critical/correctness] app/users/profile.py:2 \u2014 No null check before accessing user dictionary. If users.get(user_id) returns None, line 3 will raise a TypeError when attempting to access None['first'].",
+        "[major/correctness] app/users/profile.py:3 \u2014 Dictionary key access without validation. If 'first' or 'last' keys are missing, this will raise a KeyError. Consider using .get() with defaults instead.",
+        "[major/maintainability] app/users/profile.py:1 \u2014 Missing docstring explaining function behavior, parameters, and return value."
+      ]
+    },
+    {
+      "case_id": "buggy_mutable_default",
+      "label": "buggy",
+      "bug_type": "mutable-default",
+      "outcome": "TP",
+      "matched_line": 1,
+      "num_findings": 1,
+      "findings": [
+        "[major/correctness] app/util/collect.py:1 \u2014 Mutable default argument `bucket=[]` is a classic Python pitfall. The same list object is reused across all function calls, causing unexpected state sharing between invocations. Use `bucket=None` and initialize to `[]` inside the function instead."
+      ]
+    },
+    {
+      "case_id": "buggy_off_by_one",
+      "label": "buggy",
+      "bug_type": "off-by-one",
+      "outcome": "TP",
+      "matched_line": 4,
+      "num_findings": 2,
+      "findings": [
+        "[critical/correctness] app/utils/pagination.py:4 \u2014 Incorrect slice indexing: `items[i * page_size]` accesses a single element at position `i * page_size`, not a page of items. Should use `items[i * page_size:(i + 1) * page_size]` to get a slice of `page_size` items.",
+        "[major/correctness] app/utils/pagination.py:1 \u2014 The function name `last_page_items` suggests returning only the last page, but the implementation attempts to return all pages. The function logic and name are misaligned."
+      ]
+    },
+    {
+      "case_id": "buggy_race_condition",
+      "label": "buggy",
+      "bug_type": "race-condition",
+      "outcome": "TP",
+      "matched_line": 1,
+      "num_findings": 4,
+      "findings": [
+        "[major/maintainability] app/cache/counter.py:1 \u2014 Module-level mutable global state (`counts` dict) makes the module non-reentrant and difficult to test. Consider using a class-based approach or dependency injection to manage state.",
+        "[minor/style] app/cache/counter.py:2 \u2014 Function `increment` should have a docstring explaining its purpose, parameters, and return value.",
+        "[minor/style] app/cache/counter.py:3 \u2014 The initialization check can be simplified using `counts.get(key, 0)` or `counts.setdefault(key, 0)` instead of the if statement.",
+        "[minor/correctness] app/cache/counter.py:5 \u2014 Using `counts[key] = counts[key] + 1` is less Pythonic and less efficient than using `counts[key] += 1`."
+      ]
+    },
+    {
+      "case_id": "buggy_resource_leak",
+      "label": "buggy",
+      "bug_type": "resource-leak",
+      "outcome": "TP",
+      "matched_line": 1,
+      "num_findings": 3,
+      "findings": [
+        "[major/correctness] app/io/reader.py:1 \u2014 File handle is never closed. Use a context manager (with statement) or call f.close() in a finally block to ensure proper resource cleanup.",
+        "[major/correctness] app/io/reader.py:2 \u2014 No error handling for file operations. If the file doesn't exist or cannot be read, an exception will be raised. Consider handling FileNotFoundError or IOError.",
+        "[minor/maintainability] app/io/reader.py:1 \u2014 Function lacks a docstring explaining its purpose, parameters, and return type."
+      ]
+    },
+    {
+      "case_id": "buggy_sql_injection",
+      "label": "buggy",
+      "bug_type": "injection",
+      "outcome": "TP",
+      "matched_line": 2,
+      "num_findings": 2,
+      "findings": [
+        "[critical/security] app/db/queries.py:2 \u2014 SQL injection vulnerability: user input is concatenated directly into the SQL query string. Use parameterized queries with placeholders instead (e.g., cursor.execute(query, (username,)))",
+        "[minor/maintainability] app/db/queries.py:1 \u2014 Function lacks docstring explaining parameters, return value, and potential exceptions"
+      ]
+    },
+    {
+      "case_id": "clean_average_guarded",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "FP",
+      "matched_line": null,
+      "num_findings": 3,
+      "findings": [
+        "[major/correctness] app/stats/metrics_safe.py \u2014 The function lacks type hints, making it unclear what types are expected and what is returned. This reduces code clarity and may cause runtime errors if non-numeric values are passed.",
+        "[minor/style] app/stats/metrics_safe.py \u2014 The function lacks a docstring explaining its purpose, parameters, and return value. This is important for public utility functions.",
+        "[minor/correctness] app/stats/metrics_safe.py:4 \u2014 The division operation assumes all values in the list are numeric. If non-numeric values are present, this will raise a TypeError. Consider adding type validation or explicit type hints."
+      ]
+    },
+    {
+      "case_id": "clean_context_manager_io",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "FP",
+      "matched_line": null,
+      "num_findings": 3,
+      "findings": [
+        "[major/correctness] app/io/safe_reader.py:1 \u2014 File handle is not closed if an exception occurs during read(). Use context manager properly or ensure exception handling. Consider: with open(path) as f: return f.read() ensures cleanup, but adding error handling would improve robustness.",
+        "[major/security] app/io/safe_reader.py:1 \u2014 No validation or error handling for file access. The function will raise an unhandled exception if the file doesn't exist or cannot be read. Should add try-except to handle FileNotFoundError, PermissionError, and IOError gracefully.",
+        "[minor/maintainability] app/io/safe_reader.py:1 \u2014 Function name suggests safety ('safe_reader') but implementation lacks error handling. Either add exception handling to match the name's promise, or rename to reflect actual behavior."
+      ]
+    },
+    {
+      "case_id": "clean_parametrized_sql",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "TN",
+      "matched_line": null,
+      "num_findings": 0,
+      "findings": []
+    },
+    {
+      "case_id": "clean_slugify",
+      "label": "clean",
+      "bug_type": null,
+      "outcome": "FP",
+      "matched_line": null,
+      "num_findings": 2,
+      "findings": [
+        "[major/correctness] app/util/strings.py:1 \u2014 slugify function does not handle special characters and unicode. It only removes spaces but leaves punctuation, accents, and other non-alphanumeric characters that are typically invalid in URL slugs. Consider using a slug library or implementing proper character sanitization.",
+        "[minor/maintainability] app/util/strings.py \u2014 Missing docstring. The function lacks documentation explaining its purpose, parameters, return value, and any constraints or expected behavior."
+      ]
+    }
+  ]
+}

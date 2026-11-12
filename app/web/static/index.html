@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR Review Agent</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%234f46e5'/><path d='M9 11h14M9 16h9M9 21h11' stroke='white' stroke-width='2.4' stroke-linecap='round'/></svg>">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <div>
+      <h1>PR Review Agent</h1>
+      <p class="tagline">LLM code review with structured findings, structural retrieval and a measured eval</p>
+    </div>
+  </div>
+  <div class="status" id="status"></div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" class="tab active" data-tab="review">Review</button>
+  <button role="tab" class="tab" data-tab="eval">Evaluation</button>
+  <button role="tab" class="tab" data-tab="history">History</button>
+</nav>
+
+<main>
+  <!-- REVIEW -->
+  <section id="tab-review" class="panel active">
+    <div class="card input-card">
+      <div class="seg" role="radiogroup" aria-label="Input source">
+        <button class="seg-btn active" data-mode="diff">Paste a diff</button>
+        <button class="seg-btn" data-mode="url">GitHub PR URL</button>
+      </div>
+
+      <div class="mode mode-diff">
+        <div class="samples">
+          <label for="sample">Try a labeled sample</label>
+          <select id="sample"><option value="">Choose a planted-bug or clean case…</option></select>
+        </div>
+        <textarea id="diff" spellcheck="false" placeholder="Paste a unified diff (git diff output)…"></textarea>
+      </div>
+
+      <div class="mode mode-url hidden">
+        <input id="prUrl" type="url" placeholder="https://github.com/owner/repo/pull/123" autocomplete="off">
+        <p class="hint">Fetches the PR diff with your GITHUB_TOKEN. Nothing is posted unless you press “Post to GitHub” afterwards.</p>
+      </div>
+
+      <details class="advanced">
+        <summary>Structural retrieval (optional)</summary>
+        <input id="repoPath" type="text" placeholder="/path/to/local/checkout" autocomplete="off">
+        <p class="hint">Point at a local checkout and the agent greps it for callers of changed symbols, resolved imports and related tests, then feeds them to the model alongside the diff.</p>
+      </details>
+
+      <div class="actions">
+        <button id="runBtn" class="primary">Run review</button>
+        <span id="runState" class="run-state"></span>
+      </div>
+    </div>
+
+    <div id="error" class="error hidden"></div>
+    <div id="results" class="hidden"></div>
+  </section>
+
+  <!-- EVAL -->
+  <section id="tab-eval" class="panel">
+    <div id="evalBody"><p class="muted">Loading eval report…</p></div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="tab-history" class="panel">
+    <div class="card">
+      <div class="card-head">
+        <h2>Review runs</h2>
+        <span class="muted small">Every run is appended to <code>runs/runs.jsonl</code></span>
+      </div>
+      <div id="historyBody"><p class="muted">Loading…</p></div>
+    </div>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

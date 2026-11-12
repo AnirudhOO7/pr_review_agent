@@ -3,6 +3,7 @@ import re
 import httpx
 
 from app.config.config import settings
+from app.github.review_builder import InlineComment
 
 GITHUB_API_BASE = "https://api.github.com"
 
@@ -67,7 +68,7 @@ class GitHubClient:
         repo: str,
         pull_number: int,
         body: str,
-        comments: list[dict],
+        comments: list[InlineComment],
     ) -> None:
         """Create a PR review with optional inline comments.
 

@@ -46,12 +46,31 @@ app/
   models/          Pydantic response models (structured findings)
   retrieval/       Structural (grep-based) retrieval of diff context
   review_service.py    Orchestration: fetch -> retrieve -> review -> post
+  web/             FastAPI server + single-page UI (static/)
 evals/             Eval harness: labeled dataset, scorer, report generator
 main.py            CLI entry point
 tests/             Unit tests (diff parsing, retrieval, review service, eval)
 ```
 
 Pipeline: parse the PR URL → fetch the unified diff via the GitHub API → (optional) run structural retrieval over a local checkout → send diff + context to the model → validate findings against the Pydantic schema → print, and optionally post inline review comments → append the run to `runs/runs.jsonl`.
+
+---
+
+## Web app
+
+```bash
+uv sync                      # or: pip install -r requirements.txt
+cp .env.example .env         # add ANTHROPIC_API_KEY (and GITHUB_TOKEN for PR URLs)
+uv run uvicorn app.web.server:app --port 8000
+```
+
+Open http://localhost:8000. Three tabs:
+
+- **Review** - paste a diff, pick one of the labeled planted-bug samples, or enter a GitHub PR URL. Findings appear inline on the diff and in a severity-sorted list; for samples, the planted bug lines are marked so you can see whether the agent caught it. A GitHub preview shows which findings post inline and which are demoted to the summary, and **Post to GitHub** sends the review (PR URLs only, after a confirmation).
+- **Evaluation** - precision / recall / F1, confusion matrix, recall by bug type, and per-case results from `evals/report.json`. Any case can be re-run live.
+- **History** - every run from `runs/runs.jsonl`; click one to reopen it.
+
+Pasted diffs only need `ANTHROPIC_API_KEY`. Interactive API docs are at `/api/docs`.
 
 ---
 
@@ -135,7 +154,7 @@ Grow the dataset by adding JSON files to `evals/cases/` (one case or a list). Ea
 python -m unittest
 ```
 
-Covers diff parsing, structural retrieval, the review service, and the eval scorer.
+Covers diff parsing, structural retrieval, review building, the review service, the web API, and the eval scorer.
 
 ---
 
